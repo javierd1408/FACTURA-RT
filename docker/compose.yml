@@ -1,0 +1,58 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15
+    env_file: ["../.env"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7
+    volumes:
+      - redisdata:/data
+
+  api:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.api
+    env_file: ["../.env"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports:
+      - "8000:8000"   # para probar la API directa
+    # si quieres, añade: restart: unless-stopped
+
+  web:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.web   # <— ahora sí dentro de build
+    depends_on: [api]
+    # si tu Dockerfile.web copia el build a /web/dist:
+    volumes:
+      - webdist:/web/dist
+
+  proxy:
+    image: caddy:2
+    ports:
+      - "80:80"
+    volumes:
+      - ../proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - webdist:/srv/web:ro
+    depends_on:
+      - api
+      - web
+
+volumes:
+  pgdata:
+  redisdata:
+  webdist:
+

@@ -1,0 +1,23 @@
+:80 {
+    encode gzip
+
+    # API bajo /api/*
+    @api path /api/*
+    handle @api {
+        reverse_proxy api:8000
+    }
+
+    # Ping de salud del proxy (toma prioridad y NO cae al estático)
+    handle_path /ping* {
+        respond "ok" 200
+    }
+
+    # Frontend estático
+    handle {
+        root * /srv/web
+        try_files {path} /index.html
+        file_server
+    }
+}
+
+
